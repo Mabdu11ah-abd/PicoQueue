@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PicoQueue.Abstractions/PicoQueue.Abstractions.csproj" />
+    <Project Path="src/PicoQueue.Core/PicoQueue.Core.csproj" />
+    <Project Path="src/PicoQueue.Storage.Sqlite/PicoQueue.Storage.Sqlite.csproj" />
+    <Project Path="src/PicoQueue.Web/PicoQueue.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PicoQueue.Tests/PicoQueue.Tests.csproj" />
+  </Folder>
+</Solution>

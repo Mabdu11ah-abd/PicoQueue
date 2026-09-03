@@ -1,0 +1,6 @@
+@PicoQueue.Web_HostAddress = http://localhost:5125
+
+GET {{PicoQueue.Web_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

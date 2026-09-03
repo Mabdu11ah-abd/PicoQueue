@@ -1,4 +1,4 @@
-# [Project Name TBD] — A Lean, SQLite-First Background Job Queue for .NET
+# PicoQueue — A Lean, SQLite-First Background Job Queue for .NET
 
 ## 1. Problem Statement
 
@@ -14,11 +14,11 @@ In short: developers want something **between** Coravel's simplicity and Hangfir
 
 ## 2. Proposed Solution
 
-Build an **embeddable, open-source (MIT-licensed) background job queue for .NET**, SQLite-first but storage-agnostic by design, with a clean plugin interface for both **storage backends** and **job types**. Working name: **LiteQueue** (placeholder — naming TBD).
+Build an **embeddable, open-source (MIT-licensed) background job queue for .NET**, SQLite-first but storage-agnostic by design, with a clean plugin interface for both **storage backends** and **job types**.
 
 ### Core principles
 
-1. **Zero infrastructure to start.** `dotnet add package LiteQueue` and jobs persist to a local SQLite file with no separate server, no Redis, no SQL Server setup. Production teams can later swap in Postgres or SQL Server via the same interface.
+1. **Zero infrastructure to start.** `dotnet add package PicoQueue` and jobs persist to a local SQLite file with no separate server, no Redis, no SQL Server setup. Production teams can later swap in Postgres or SQL Server via the same interface.
 2. **No licensing ambiguity.** Fully MIT-licensed, including whatever ships as the "dashboard" — no pro tier, no feature paywall. This is a direct, explicit differentiator against Hangfire.
 3. **Efficient by default.** Avoid unnecessary polling; use event-based wake-ups where possible (e.g., in-process signaling for enqueue-to-run latency), falling back to lightweight polling only for scheduled/cron jobs.
 4. **Pluggable from the core outward.** Storage backends and job execution strategies are implemented against a small, well-documented interface (`IJobStorage`, `IJobExecutor` or similar), so the "add a new backend" contribution path is realistic for an external contributor without deep familiarity with the whole codebase.
@@ -71,7 +71,7 @@ Build an **embeddable, open-source (MIT-licensed) background job queue for .NET*
 
 ## 4. Competitor Analysis
 
-| | **Hangfire** | **Quartz.NET** | **TickerQ** | **Coravel** | **This project** |
+| | **Hangfire** | **Quartz.NET** | **TickerQ** | **Coravel** | **PicoQueue** |
 |---|---|---|---|---|---|
 | **Primary focus** | General background jobs (enqueue/retry/dashboard) | Scheduling precision (cron, calendars, misfire handling) | Modern source-generated scheduler + jobs | Simple in-process scheduling | Embeddable job queue, SQLite-first |
 | **Persistence** | SQL Server, Redis, others via extensions | DB-backed (many providers), supports clustering | EF Core (Postgres/SQL Server/SQLite/MySQL) or Redis | None — in-memory only | SQLite by default; Postgres/SQL Server as pluggable backends |
@@ -84,16 +84,16 @@ Build an **embeddable, open-source (MIT-licensed) background job queue for .NET*
 | **Best fit today** | Teams wanting a mature all-rounder and willing to accept SQL Server/Redis + possible Pro licensing | Teams needing complex calendars, misfire policies, clustering | Greenfield EF Core shops wanting a modern dashboard without Hangfire's weight | Small single-instance apps, jobs that can tolerate missed runs | Small-to-mid teams wanting a real job queue with zero infra and no licensing ambiguity, that can grow into Postgres/SQL Server later |
 
 ### Key takeaways from the competitive landscape
-- <cite index="13-1">Quartz.NET is the most mature and capable scheduler, offering rich cron triggers, calendars, and misfire policies, but has no dashboard and more setup ceremony. Hangfire remains the most popular general-purpose background-job system, covering fire-and-forget, delayed, and recurring jobs with a strong dashboard, though recurring cron is more of an add-on than its core strength.</cite>
-- <cite index="13-1">TickerQ is the newer entrant — source-generator based with no reflection, EF Core persistence, a live dashboard, and no polling loop — but is still young, and Coravel is the simplest option, offering zero-infrastructure in-process scheduling at the cost of persistence (a restart loses all state, and it assumes a single instance).</cite>
-- <cite index="14-1">TickerQ's reliance on Entity Framework Core couples job scheduling directly to the application's database strategy, which creates friction for teams preferring Dapper, raw SQL, or NoSQL databases.</cite>
-- <cite index="6-1">A recurring complaint about Hangfire is that its storage load is disproportionate for light workloads — it polls its store continuously (e.g., SQL Server queries every few seconds) even to discover that nothing is due, which matters for teams running only a handful of nightly jobs.</cite>
+- Quartz.NET is the most mature and capable scheduler, offering rich cron triggers, calendars, and misfire policies, but has no dashboard and more setup ceremony. Hangfire remains the most popular general-purpose background-job system, covering fire-and-forget, delayed, and recurring jobs with a strong dashboard, though recurring cron is more of an add-on than its core strength.
+- TickerQ is the newer entrant — source-generator based with no reflection, EF Core persistence, a live dashboard, and no polling loop — but is still young, and Coravel is the simplest option, offering zero-infrastructure in-process scheduling at the cost of persistence (a restart loses all state, and it assumes a single instance).
+- TickerQ's reliance on Entity Framework Core couples job scheduling directly to the application's database strategy, which creates friction for teams preferring Dapper, raw SQL, or NoSQL databases.
+- A recurring complaint about Hangfire is that its storage load is disproportionate for light workloads — it polls its store continuously (e.g., SQL Server queries every few seconds) even to discover that nothing is due, which matters for teams running only a handful of nightly jobs.
 
-**Net positioning:** there is a real, currently unfilled niche for a job queue that combines (a) genuinely zero-infrastructure setup via SQLite, (b) an unambiguous MIT license with no paid tier, and (c) a storage abstraction designed from the start to be extended by the community rather than bolted on later. TickerQ is the closest existing competitor in spirit (modern, dashboard-equipped, actively developed) but is coupled to EF Core and doesn't lead with a zero-config local-file story; Coravel covers the zero-infra angle but abandons persistence entirely. This project sits deliberately between them.
+**Net positioning:** there is a real, currently unfilled niche for a job queue that combines (a) genuinely zero-infrastructure setup via SQLite, (b) an unambiguous MIT license with no paid tier, and (c) a storage abstraction designed from the start to be extended by the community rather than bolted on later. TickerQ is the closest existing competitor in spirit (modern, dashboard-equipped, actively developed) but is coupled to EF Core and doesn't lead with a zero-config local-file story; Coravel covers the zero-infra angle but abandons persistence entirely. PicoQueue sits deliberately between them.
 
-## 5. Open Questions / Next Steps
-- Finalize project name and check NuGet/GitHub namespace availability.
-- Decide on dashboard tech stack (Blazor Server vs. a minimal API + lightweight JS frontend) — affects dependency footprint of the dashboard package.
-- Decide initial concurrency model (thread pool-based vs. channel-based dispatcher).
-- Define the `IJobStorage` interface contract in enough detail to serve as the "add a new backend" contribution template from week one.
-- Scope the first milestone (see suggested 2–4 week plan) and open the repo with a `CONTRIBUTING.md` and 3–5 labeled "good first issue" tasks before any public announcement.
+## 5. Next Steps
+- Finalize and verify NuGet/GitHub namespace availability.
+- Decide on dashboard tech stack (Blazor vs. minimal API + lightweight JS frontend) — affects dependency footprint of the dashboard package.
+- Implement channel-based dispatcher and core execution pipeline.
+- Implement reference `PicoQueue.Storage.Sqlite` backend.
+- Scope the first milestone and publish with `CONTRIBUTING.md` and initial "good first issue" tasks.
