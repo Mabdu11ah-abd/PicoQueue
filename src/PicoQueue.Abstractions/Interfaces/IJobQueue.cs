@@ -51,10 +51,4 @@ public interface IJobQueue
     /// Updates the heartbeat timestamp for an actively running job to indicate worker liveness.
     /// </summary>
     Task<bool> UpdateHeartbeatAsync(Guid jobId, CancellationToken ct = default);
-
-    /// <summary>
-    /// Requeues jobs that have been stuck in 'Processing' without a heartbeat for longer than the timeout.
-    /// Returns the number of recovered jobs.
-    /// </summary>
-    Task<int> RequeueStaleJobsAsync(TimeSpan heartbeatTimeout, CancellationToken ct = default);
 }
