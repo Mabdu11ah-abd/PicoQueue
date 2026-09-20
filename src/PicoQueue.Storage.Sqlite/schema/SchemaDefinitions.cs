@@ -10,6 +10,12 @@ public static class SchemaDefinitions
     public const string QueueJobsTableName = "QueueJobs";
     public const string ScheduledJobsTableName = "ScheduledJobs";
 
+    public static class Tables
+    {
+        public const string QueueJobs = QueueJobsTableName;
+        public const string ScheduledJobs = ScheduledJobsTableName;
+    }
+
     public const string ConfigurePragmasSql = @"
         PRAGMA journal_mode = WAL;
         PRAGMA synchronous = NORMAL;
