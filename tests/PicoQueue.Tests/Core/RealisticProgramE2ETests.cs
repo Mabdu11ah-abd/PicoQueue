@@ -107,15 +107,11 @@ public class RealisticProgramE2ETests
             var jobQueue = host.Services.GetRequiredService<IJobQueue>();
 
             var payload = new SendWelcomeEmailArgs("alex@example.com", "Alex");
-            var enqueuedJob = await jobQueue.EnqueueAsync(new EnqueueJobDto
-            {
-                Name = "SendWelcomeEmail",
-                TypeName = typeof(SendWelcomeEmailJob).AssemblyQualifiedName!,
-                PayloadJson = JsonSerializer.Serialize(payload),
-                Queue = "default",
-                Priority = 10,
-                MaxAttempts = 3
-            });
+            var enqueuedJob = await jobQueue.EnqueueAsync<SendWelcomeEmailJob, SendWelcomeEmailArgs>(
+                payload,
+                queue: "default",
+                priority: 10,
+                maxAttempts: 3);
 
             Assert.NotNull(enqueuedJob);
             Assert.Equal(JobState.Enqueued, enqueuedJob.State);

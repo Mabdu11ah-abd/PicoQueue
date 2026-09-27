@@ -46,13 +46,14 @@ public class RecurringJobScheduler : BackgroundService
                         // 1. Enqueue execution item into ready queue
                         await _jobQueue.EnqueueAsync(new EnqueueJobDto
                         {
+                            ScheduledJobId = job.Id,
                             Name = job.Name,
                             Description = job.Description,
                             TypeName = job.TypeName,
                             PayloadJson = job.PayloadJson,
                             Queue = job.Queue,
-                            Priority = 0,
-                            MaxAttempts = 3
+                            Priority = job.Priority,
+                            MaxAttempts = job.MaxAttempts
                         }, stoppingToken);
 
                         // 2. Calculate next run time if recurring
@@ -72,6 +73,12 @@ public class RecurringJobScheduler : BackgroundService
 
                         // 3. Atomically record trigger and update next run time
                         await _scheduleJob.RecordTriggerAsync(job.Id, now, nextRunAt, stoppingToken);
+
+                        // 4. If this was a one-off delayed job, disable it so it does not trigger again
+                        if (!job.IsRecurring)
+                        {
+                            await _scheduleJob.SetEnabledAsync(job.Id, false, stoppingToken);
+                        }
                     }
                     catch (Exception ex)
                     {

@@ -56,9 +56,9 @@ public class RecurringJobSchedulerTests
             await scheduler.StopAsync(CancellationToken.None);
         }
 
-        // Verify it was enqueued to IJobQueue
+        // Verify it was enqueued to IJobQueue with parent ScheduledJobId linked
         jobQueueMock.Verify(q => q.EnqueueAsync(
-            It.Is<EnqueueJobDto>(dto => dto.TypeName == "MyApp.SyncJob" && dto.Name == "HourlySync"),
+            It.Is<EnqueueJobDto>(dto => dto.TypeName == "MyApp.SyncJob" && dto.Name == "HourlySync" && dto.ScheduledJobId == scheduledJob.Id),
             It.IsAny<CancellationToken>()), Times.AtLeastOnce);
 
         // Verify trigger was recorded and next occurrence was calculated

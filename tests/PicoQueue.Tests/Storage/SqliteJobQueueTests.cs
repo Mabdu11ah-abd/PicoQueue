@@ -67,6 +67,38 @@ public class SqliteJobQueueTests : IDisposable
         Assert.Equal(JobState.Enqueued, fetched.State);
     }
 
+    [PicoQueue.Abstractions.Attributes.Queue("critical-queue")]
+    public class TestQueueAttributeJob { }
+
+    [Fact]
+    public async Task EnqueueAsync_WhenJobHasQueueAttribute_ResolvesQueueNameAutomatically()
+    {
+        var dto = new EnqueueJobDto
+        {
+            TypeName = typeof(TestQueueAttributeJob).AssemblyQualifiedName!,
+            PayloadJson = "{}"
+        };
+
+        var job = await _queue.EnqueueAsync(dto);
+
+        Assert.Equal("critical-queue", job.Queue);
+    }
+
+    [Fact]
+    public async Task EnqueueAsync_WhenJobHasQueueAttribute_ExplicitQueueOverridesAttribute()
+    {
+        var dto = new EnqueueJobDto
+        {
+            TypeName = typeof(TestQueueAttributeJob).AssemblyQualifiedName!,
+            PayloadJson = "{}",
+            Queue = "custom-override"
+        };
+
+        var job = await _queue.EnqueueAsync(dto);
+
+        Assert.Equal("custom-override", job.Queue);
+    }
+
     [Fact]
     public async Task DequeueAsync_ShouldAtomicallyLockNextEligibleJob()
     {
@@ -290,5 +322,23 @@ public class SqliteJobQueueTests : IDisposable
         var refreshed = await _queue.GetByIdAsync(job.Id);
         Assert.NotNull(refreshed);
         Assert.Equal(JobState.Deleted, refreshed.State);
+    }
+
+    [Fact]
+    public async Task EnqueueAsync_WithScheduledJobId_PersistsAndLoadsScheduledJobIdSuccessfully()
+    {
+        var scheduledId = Guid.NewGuid();
+        var job = await _queue.EnqueueAsync(new EnqueueJobDto
+        {
+            TypeName = "TestApp.ScheduledChildJob",
+            PayloadJson = "{}",
+            ScheduledJobId = scheduledId
+        });
+
+        Assert.Equal(scheduledId, job.ScheduledJobId);
+
+        var retrieved = await _queue.GetByIdAsync(job.Id);
+        Assert.NotNull(retrieved);
+        Assert.Equal(scheduledId, retrieved.ScheduledJobId);
     }
 }

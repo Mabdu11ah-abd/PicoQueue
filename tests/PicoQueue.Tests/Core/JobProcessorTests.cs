@@ -212,4 +212,58 @@ public class JobProcessorTests
             It.Is<DateTimeOffset?>(dt => dt.HasValue), // Verify retryAt was calculated
             It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    [Fact]
+    public async Task ProcessJob_WhenCustomQueuesConfigured_PollsCustomQueues()
+    {
+        var serviceCollection = new ServiceCollection();
+        var serviceProvider = serviceCollection.BuildServiceProvider();
+
+        var scopeFactoryMock = new Mock<IServiceScopeFactory>();
+        var scopeMock = new Mock<IServiceScope>();
+        scopeMock.Setup(s => s.ServiceProvider).Returns(serviceProvider);
+        scopeFactoryMock.Setup(s => s.CreateScope()).Returns(scopeMock.Object);
+
+        var jobQueueMock = new Mock<IJobQueue>();
+        var jobFactory = new DefaultJobFactory();
+        var options = Microsoft.Extensions.Options.Options.Create(new PicoQueueOptions
+        {
+            Queues = ["emails", "critical"]
+        });
+        var loggerMock = new Mock<ILogger<JobProcessor>>();
+
+        var processor = new JobProcessor(
+            jobQueueMock.Object,
+            jobFactory,
+            scopeFactoryMock.Object,
+            options,
+            loggerMock.Object);
+
+        var queueJob = new QueueJob
+        {
+            Id = Guid.NewGuid(),
+            TypeName = typeof(MockSimpleJob).AssemblyQualifiedName!,
+            PayloadJson = "{}",
+            Queue = "emails",
+            Attempt = 0,
+            MaxAttempts = 3,
+            State = JobState.Processing
+        };
+
+        jobQueueMock.Setup(q => q.DequeueAsync(It.Is<DequeueJobDto>(d => d.Queue == "emails"), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(queueJob);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        try
+        {
+            await processor.StartAsync(cts.Token);
+            await Task.Delay(200);
+        }
+        finally
+        {
+            await processor.StopAsync(CancellationToken.None);
+        }
+
+        jobQueueMock.Verify(q => q.DequeueAsync(It.Is<DequeueJobDto>(d => d.Queue == "emails"), It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+    }
 }

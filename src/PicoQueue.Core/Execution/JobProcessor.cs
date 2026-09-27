@@ -43,6 +43,12 @@ public class JobProcessor : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        var targetQueues = _options.Queues is { Length: > 0 }
+            ? _options.Queues
+            : (!string.IsNullOrWhiteSpace(_options.QueueName) && _options.QueueName != "default"
+                ? [_options.QueueName]
+                : null);
+
         while (!stoppingToken.IsCancellationRequested)
         {
             var acquired = false;
@@ -51,11 +57,31 @@ public class JobProcessor : BackgroundService
                 await _concurrencySemaphore.WaitAsync(stoppingToken);
                 acquired = true;
 
-                QueueJob? job = await _jobQueue.DequeueAsync(new DequeueJobDto
+                QueueJob? job = null;
+                if (targetQueues != null)
                 {
-                    WorkerId = _workerId,
-                    Queue = "default"
-                }, stoppingToken);
+                    foreach (var queue in targetQueues)
+                    {
+                        job = await _jobQueue.DequeueAsync(new DequeueJobDto
+                        {
+                            WorkerId = _workerId,
+                            Queue = queue
+                        }, stoppingToken);
+
+                        if (job is not null)
+                        {
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    job = await _jobQueue.DequeueAsync(new DequeueJobDto
+                    {
+                        WorkerId = _workerId,
+                        Queue = null
+                    }, stoppingToken);
+                }
 
                 if (job is null)
                 {
@@ -88,7 +114,6 @@ public class JobProcessor : BackgroundService
             }
         }
     }
-
     private async Task ProcessJobAsync(QueueJob job, CancellationToken stoppingToken)
     {
         using var scope = _scopeFactory.CreateScope();
@@ -229,4 +254,4 @@ public class JobProcessor : BackgroundService
             _concurrencySemaphore.Release();
         }
     }
-}
+}

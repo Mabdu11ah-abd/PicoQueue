@@ -1,4 +1,5 @@
 using Microsoft.Data.Sqlite;
+using PicoQueue.Abstractions.Attributes;
 using PicoQueue.Abstractions.Common;
 using PicoQueue.Abstractions.DTOs.Scheduled;
 using PicoQueue.Abstractions.Interfaces;
@@ -39,6 +40,21 @@ public class SqliteScheduleJob : IScheduleJob
         await _initializer.InitializeAsync(ct).ConfigureAwait(false);
 
         var now = DateTimeOffset.UtcNow;
+
+        string queueName = dto.Queue;
+        if (string.IsNullOrWhiteSpace(queueName) || queueName == "default")
+        {
+            var jobType = ResolveJobType(dto.TypeName);
+            if (jobType != null)
+            {
+                queueName = QueueAttribute.GetQueueName(jobType, fallback: queueName ?? "default");
+            }
+            else
+            {
+                queueName = string.IsNullOrWhiteSpace(queueName) ? "default" : queueName;
+            }
+        }
+
         var job = new ScheduledJob
         {
             Id = Guid.NewGuid(),
@@ -46,7 +62,7 @@ public class SqliteScheduleJob : IScheduleJob
             Description = dto.Description,
             TypeName = dto.TypeName,
             PayloadJson = dto.PayloadJson,
-            Queue = string.IsNullOrWhiteSpace(dto.Queue) ? "default" : dto.Queue,
+            Queue = queueName,
             ScheduledAt = dto.ScheduledAt,
             IsRecurring = dto.IsRecurring,
             CronExpression = dto.CronExpression,
@@ -346,5 +362,30 @@ public class SqliteScheduleJob : IScheduleJob
 
         int affected = await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
         return affected > 0;
+    }
+
+    private static Type? ResolveJobType(string? typeName)
+    {
+        if (string.IsNullOrWhiteSpace(typeName))
+        {
+            return null;
+        }
+
+        var type = Type.GetType(typeName);
+        if (type != null)
+        {
+            return type;
+        }
+
+        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            type = assembly.GetType(typeName);
+            if (type != null)
+            {
+                return type;
+            }
+        }
+
+        return null;
     }
 }

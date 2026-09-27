@@ -1,5 +1,6 @@
 using System.Data.Common;
 using Microsoft.Data.Sqlite;
+using PicoQueue.Abstractions.Attributes;
 using PicoQueue.Abstractions.Common;
 using PicoQueue.Abstractions.DTOs.Queue;
 using PicoQueue.Abstractions.Enums;
@@ -41,14 +42,30 @@ public class SqliteJobQueue : IJobQueue
         await _initializer.InitializeAsync(ct).ConfigureAwait(false);
 
         var now = DateTimeOffset.UtcNow;
+
+        string queueName = dto.Queue;
+        if (string.IsNullOrWhiteSpace(queueName) || queueName == "default")
+        {
+            var jobType = ResolveJobType(dto.TypeName);
+            if (jobType != null)
+            {
+                queueName = QueueAttribute.GetQueueName(jobType, fallback: queueName ?? "default");
+            }
+            else
+            {
+                queueName = string.IsNullOrWhiteSpace(queueName) ? "default" : queueName;
+            }
+        }
+
         var job = new QueueJob
         {
             Id = Guid.NewGuid(),
+            ScheduledJobId = dto.ScheduledJobId,
             Name = string.IsNullOrWhiteSpace(dto.Name) ? dto.TypeName : dto.Name,
             Description = dto.Description,
             TypeName = dto.TypeName,
             PayloadJson = dto.PayloadJson,
-            Queue = string.IsNullOrWhiteSpace(dto.Queue) ? "default" : dto.Queue,
+            Queue = queueName,
             State = JobState.Enqueued,
             Priority = dto.Priority,
             Attempt = 0,
@@ -59,10 +76,10 @@ public class SqliteJobQueue : IJobQueue
 
         const string sql = @"
             INSERT INTO QueueJobs (
-                Id, Name, Description, TypeName, PayloadJson, Queue, State, 
+                Id, ScheduledJobId, Name, Description, TypeName, PayloadJson, Queue, State, 
                 Priority, Attempt, MaxAttempts, CreatedAt, LastUpdate
             ) VALUES (
-                @Id, @Name, @Description, @TypeName, @PayloadJson, @Queue, @State, 
+                @Id, @ScheduledJobId, @Name, @Description, @TypeName, @PayloadJson, @Queue, @State, 
                 @Priority, @Attempt, @MaxAttempts, @CreatedAt, @LastUpdate
             );";
 
@@ -70,6 +87,7 @@ public class SqliteJobQueue : IJobQueue
         await using var cmd = connection.CreateCommand();
         cmd.CommandText = sql;
         cmd.Parameters.AddWithValue("@Id", job.Id.ToString());
+        cmd.Parameters.AddWithValue("@ScheduledJobId", (object?)job.ScheduledJobId?.ToString() ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@Name", job.Name);
         cmd.Parameters.AddWithValue("@Description", (object?)job.Description ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@TypeName", job.TypeName);
@@ -104,24 +122,36 @@ public class SqliteJobQueue : IJobQueue
         {
             var now = DateTimeOffset.UtcNow;
             var nowIso = now.ToString("O");
-            var queueName = string.IsNullOrWhiteSpace(dto.Queue) ? "default" : dto.Queue;
+            var hasQueueFilter = !string.IsNullOrWhiteSpace(dto.Queue);
 
             // 1. Select next eligible job
-            const string selectSql = @"
-                SELECT Id FROM QueueJobs
-                WHERE Queue = @Queue
-                  AND (
-                      State = 'Enqueued'
-                      OR (State = 'Retrying' AND (RetryAt IS NULL OR RetryAt <= @Now))
-                  )
-                ORDER BY Priority DESC, CreatedAt ASC
-                LIMIT 1;";
+            var selectSql = hasQueueFilter
+                ? @"
+                    SELECT Id FROM QueueJobs
+                    WHERE Queue = @Queue
+                      AND (
+                          State = 'Enqueued'
+                          OR (State = 'Retrying' AND (RetryAt IS NULL OR RetryAt <= @Now))
+                      )
+                    ORDER BY Priority DESC, CreatedAt ASC
+                    LIMIT 1;"
+                : @"
+                    SELECT Id FROM QueueJobs
+                    WHERE (
+                          State = 'Enqueued'
+                          OR (State = 'Retrying' AND (RetryAt IS NULL OR RetryAt <= @Now))
+                      )
+                    ORDER BY Priority DESC, CreatedAt ASC
+                    LIMIT 1;";
 
             string? jobIdStr = null;
             await using (var selectCmd = connection.CreateCommand())
             {
                 selectCmd.CommandText = selectSql;
-                selectCmd.Parameters.AddWithValue("@Queue", queueName);
+                if (hasQueueFilter)
+                {
+                    selectCmd.Parameters.AddWithValue("@Queue", dto.Queue);
+                }
                 selectCmd.Parameters.AddWithValue("@Now", nowIso);
 
                 var result = await selectCmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
@@ -443,5 +473,30 @@ public class SqliteJobQueue : IJobQueue
         cmd.Parameters.AddWithValue("@Now", nowIso);
 
         return await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+    }
+
+    private static Type? ResolveJobType(string? typeName)
+    {
+        if (string.IsNullOrWhiteSpace(typeName))
+        {
+            return null;
+        }
+
+        var type = Type.GetType(typeName);
+        if (type != null)
+        {
+            return type;
+        }
+
+        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            type = assembly.GetType(typeName);
+            if (type != null)
+            {
+                return type;
+            }
+        }
+
+        return null;
     }
 }

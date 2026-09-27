@@ -29,4 +29,14 @@ public sealed class PicoQueueOptions
     /// </summary>
     [Required]
     public TimeSpan HeartBeatMonitorInterval { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// Job Queue Name
+    /// </summary>
+    public string QueueName { get; set; } = "default";
+
+    /// <summary>
+    /// Ordered list of queue names to poll. If specified and non-empty, the worker polls these queues in priority order.
+    /// </summary>
+    public string[] Queues { get; set; } = [];
 }
