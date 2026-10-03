@@ -107,16 +107,21 @@ builder.Services.AddPicoQueue(options =>
 
 See [`Docs/adding-a-storage-backend.md`](Docs/adding-a-storage-backend.md) for the full `IJobStorage` contract if you want to build a backend that isn't provided yet.
 
+## Documentation
+
+- 🏛️ [Architecture Overview](Docs/architecture-overview.md) — Master guide, lifecycle sequence diagrams, and end-to-end integration walkthrough.
+- 📑 [PicoQueue.Abstractions](Docs/abstractions.md) — Core contracts (`IJob`, `IJob<T>`, `IJobQueue`, `IScheduleJob`), models, and attributes.
+- ⚙️ [PicoQueue.Core](Docs/core.md) — Execution engine, background workers (`JobProcessor`, `RecurringJobScheduler`, `HeartbeatMonitor`, `RetentionPurgeService`), and retry policies.
+- 💾 [PicoQueue.Storage.Sqlite](Docs/storage-sqlite.md) — Reference storage backend, PRAGMAs, indexing, and atomic locking transactions.
+
 ## Project structure
 
-| Project | Purpose |
-|---|---|
-| `PicoQueue.Abstractions` | Core contracts (`IJobStorage`, `JobRecord`, `JobState`) — no dependencies |
-| `PicoQueue.Core` | The execution engine — dispatcher, retry policy, cron scheduler |
-| `PicoQueue.Storage.Sqlite` | Reference storage backend, built on `Microsoft.Data.Sqlite` (no EF Core) |
-| `PicoQueue.AspNetCore` | DI registration and hosting integration |
-| `PicoQueue.Dashboard.Api` | Minimal API exposing job state for the dashboard |
-| `PicoQueue.Dashboard.Web` | React-based dashboard frontend |
+| Project | Purpose | Documentation |
+|---|---|---|
+| `PicoQueue.Abstractions` | Core contracts (`IJobQueue`, `IScheduleJob`, `QueueJob`, `JobState`) — zero dependencies | [Docs](Docs/abstractions.md) |
+| `PicoQueue.Core` | The execution engine — workers, retry policy, cron scheduler, history purge | [Docs](Docs/core.md) |
+| `PicoQueue.Storage.Sqlite` | Reference storage backend, built on `Microsoft.Data.Sqlite` (no EF Core) | [Docs](Docs/storage-sqlite.md) |
+| `PicoQueue.Web` | Web API & Dashboard integration | Planned |
 
 ## Comparison
 
