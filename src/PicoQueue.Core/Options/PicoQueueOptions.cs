@@ -39,4 +39,18 @@ public sealed class PicoQueueOptions
     /// Ordered list of queue names to poll. If specified and non-empty, the worker polls these queues in priority order.
     /// </summary>
     public string[] Queues { get; set; } = [];
+
+    /// <summary>
+    /// Retention period for finished (Succeeded, Failed, Deleted, Expired) jobs before being purged.
+    /// Default is 7 days.
+    /// </summary>
+    [Required]
+    public TimeSpan RetentionPeriod { get; set; } = TimeSpan.FromDays(7);
+
+    /// <summary>
+    /// Interval between automatic purge passes for finished jobs exceeding the retention period.
+    /// Default is 1 hour. Set to TimeSpan.Zero or negative to disable automatic purging.
+    /// </summary>
+    [Required]
+    public TimeSpan RetentionPurgeInterval { get; set; } = TimeSpan.FromHours(1);
 }

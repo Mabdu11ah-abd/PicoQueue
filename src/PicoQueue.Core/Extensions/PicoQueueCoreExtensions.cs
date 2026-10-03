@@ -41,6 +41,7 @@ public static class PicoQueueCoreExtensions
         services.AddHostedService<JobProcessor>();
         services.AddHostedService<RecurringJobScheduler>();
         services.AddHostedService<HeartbeatMonitor>();
+        services.AddHostedService<RetentionPurgeService>();
 
         return services;
     }

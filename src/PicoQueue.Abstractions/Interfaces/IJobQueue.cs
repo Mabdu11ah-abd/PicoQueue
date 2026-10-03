@@ -51,4 +51,16 @@ public interface IJobQueue
     /// Updates the heartbeat timestamp for an actively running job to indicate worker liveness.
     /// </summary>
     Task<bool> UpdateHeartbeatAsync(Guid jobId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Recovers jobs left stranded in 'Processing' state due to worker crashes or host restarts.
+    /// Returns the number of recovered jobs.
+    /// </summary>
+    Task<int> RecoverOrphanedJobsAsync(TimeSpan heartbeatTimeout, CancellationToken ct = default);
+
+    /// <summary>
+    /// Purges finished jobs (Succeeded, Failed, Deleted, Expired) whose last update timestamp is older than the specified retention duration.
+    /// Returns the number of purged jobs.
+    /// </summary>
+    Task<int> PurgeFinishedJobsAsync(TimeSpan olderThan, CancellationToken ct = default);
 }

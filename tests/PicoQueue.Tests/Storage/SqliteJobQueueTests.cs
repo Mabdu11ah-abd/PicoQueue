@@ -289,6 +289,34 @@ public class SqliteJobQueueTests : IDisposable
         var refreshed = await _queue.GetByIdAsync(claimed.Id);
         Assert.NotNull(refreshed);
         Assert.Equal(JobState.Retrying, refreshed.State);
+        Assert.Equal(1, refreshed.Attempt);
+        Assert.Null(refreshed.WorkerId);
+    }
+
+    [Fact]
+    public async Task RecoverOrphanedJobsAsync_WhenMaxAttemptsExceeded_TransitionsToFailed()
+    {
+        var job = await _queue.EnqueueAsync(new EnqueueJobDto
+        {
+            TypeName = "PoisonJobCrash",
+            PayloadJson = "{}",
+            MaxAttempts = 1 // Only 1 attempt allowed
+        });
+
+        var claimed = await _queue.DequeueAsync(new DequeueJobDto { WorkerId = "worker-that-crashed" });
+        Assert.NotNull(claimed);
+
+        // Immediate staleness recovery
+        var recoveredCount = await _queue.RecoverOrphanedJobsAsync(TimeSpan.Zero);
+        Assert.Equal(1, recoveredCount);
+
+        var refreshed = await _queue.GetByIdAsync(claimed.Id);
+        Assert.NotNull(refreshed);
+        Assert.Equal(JobState.Failed, refreshed.State);
+        Assert.Equal(1, refreshed.Attempt);
+        Assert.Null(refreshed.RetryAt);
+        Assert.Null(refreshed.WorkerId);
+        Assert.Contains("orphaned", refreshed.ErrorMessage);
     }
 
     [Fact]
@@ -340,5 +368,74 @@ public class SqliteJobQueueTests : IDisposable
         var retrieved = await _queue.GetByIdAsync(job.Id);
         Assert.NotNull(retrieved);
         Assert.Equal(scheduledId, retrieved.ScheduledJobId);
+    }
+
+    [Fact]
+    public async Task PurgeFinishedJobsAsync_ShouldRemoveOldFinishedJobs_AndRetainActiveOrRecentJobs()
+    {
+        // 1. Old Succeeded job
+        var j1 = await _queue.EnqueueAsync(new EnqueueJobDto { TypeName = "Job1", PayloadJson = "{}" });
+        await _queue.DequeueAsync(new DequeueJobDto { WorkerId = "w1" });
+        await _queue.AcknowledgeSuccessAsync(j1.Id);
+
+        // 2. Old Failed job
+        var j2 = await _queue.EnqueueAsync(new EnqueueJobDto { TypeName = "Job2", PayloadJson = "{}" });
+        await _queue.DequeueAsync(new DequeueJobDto { WorkerId = "w1" });
+        await _queue.AcknowledgeFailureAsync(j2.Id, "Permanent error");
+
+        // 3. Old Deleted job
+        var j3 = await _queue.EnqueueAsync(new EnqueueJobDto { TypeName = "Job3", PayloadJson = "{}" });
+        await _queue.DeleteJobAsync(j3.Id);
+
+        // 4. Recent Succeeded job - MUST NOT BE PURGED
+        var j5 = await _queue.EnqueueAsync(new EnqueueJobDto { TypeName = "Job5", PayloadJson = "{}" });
+        await _queue.DequeueAsync(new DequeueJobDto { WorkerId = "w1" });
+        await _queue.AcknowledgeSuccessAsync(j5.Id);
+
+        // 5. Old Active (Enqueued) job - MUST NOT BE PURGED
+        var j4 = await _queue.EnqueueAsync(new EnqueueJobDto { TypeName = "Job4", PayloadJson = "{}" });
+
+        // Backdate j1, j2, j3, j4 by 10 days in the database
+        var pastDate = DateTimeOffset.UtcNow.AddDays(-10).ToString("O");
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection(_connectionString);
+        await connection.OpenAsync();
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = @"
+            UPDATE QueueJobs 
+            SET LastUpdate = @PastDate 
+            WHERE Id IN (@Id1, @Id2, @Id3, @Id4);";
+        cmd.Parameters.AddWithValue("@PastDate", pastDate);
+        cmd.Parameters.AddWithValue("@Id1", j1.Id.ToString());
+        cmd.Parameters.AddWithValue("@Id2", j2.Id.ToString());
+        cmd.Parameters.AddWithValue("@Id3", j3.Id.ToString());
+        cmd.Parameters.AddWithValue("@Id4", j4.Id.ToString());
+        await cmd.ExecuteNonQueryAsync();
+
+        // Act: purge older than 7 days
+        int purged = await _queue.PurgeFinishedJobsAsync(TimeSpan.FromDays(7));
+
+        // Assert: 3 jobs purged (j1, j2, j3)
+        Assert.Equal(3, purged);
+
+        Assert.Null(await _queue.GetByIdAsync(j1.Id));
+        Assert.Null(await _queue.GetByIdAsync(j2.Id));
+        Assert.Null(await _queue.GetByIdAsync(j3.Id));
+
+        // j4 (Enqueued) should still exist even though its LastUpdate was 10 days ago
+        var remainingJ4 = await _queue.GetByIdAsync(j4.Id);
+        Assert.NotNull(remainingJ4);
+        Assert.Equal(JobState.Enqueued, remainingJ4.State);
+
+        // j5 (recent Succeeded) should still exist
+        var remainingJ5 = await _queue.GetByIdAsync(j5.Id);
+        Assert.NotNull(remainingJ5);
+        Assert.Equal(JobState.Succeeded, remainingJ5.State);
+    }
+
+    [Fact]
+    public async Task PurgeFinishedJobsAsync_WithNegativeDuration_ThrowsArgumentOutOfRangeException()
+    {
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            _queue.PurgeFinishedJobsAsync(TimeSpan.FromSeconds(-1)));
     }
 }

@@ -458,10 +458,11 @@ public class SqliteJobQueue : IJobQueue
 
         const string sql = @"
             UPDATE QueueJobs
-            SET State = 'Retrying',
+            SET State = CASE WHEN Attempt + 1 >= MaxAttempts THEN 'Failed' ELSE 'Retrying' END,
+                Attempt = Attempt + 1,
                 WorkerId = NULL,
                 ErrorMessage = 'Recovered from orphaned worker heartbeat timeout',
-                RetryAt = @Now,
+                RetryAt = CASE WHEN Attempt + 1 >= MaxAttempts THEN NULL ELSE @Now END,
                 LastUpdate = @Now
             WHERE State = 'Processing'
               AND (HeartbeatAt IS NULL OR HeartbeatAt < @Threshold);";
@@ -471,6 +472,35 @@ public class SqliteJobQueue : IJobQueue
         cmd.CommandText = sql;
         cmd.Parameters.AddWithValue("@Threshold", threshold);
         cmd.Parameters.AddWithValue("@Now", nowIso);
+
+        return await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Purges finished jobs (Succeeded, Failed, Deleted, Expired) whose last update timestamp is older than the specified retention duration.
+    /// Returns the number of purged jobs.
+    /// </summary>
+    public async Task<int> PurgeFinishedJobsAsync(TimeSpan olderThan, CancellationToken ct = default)
+    {
+        if (olderThan < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(olderThan), "Retention duration cannot be negative.");
+        }
+
+        await _initializer.InitializeAsync(ct).ConfigureAwait(false);
+
+        var now = DateTimeOffset.UtcNow;
+        var threshold = now.Subtract(olderThan).ToString("O");
+
+        const string sql = @"
+            DELETE FROM QueueJobs
+            WHERE State IN ('Succeeded', 'Failed', 'Deleted', 'Expired')
+              AND LastUpdate <= @Threshold;";
+
+        await using var connection = await _connectionFactory.OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = sql;
+        cmd.Parameters.AddWithValue("@Threshold", threshold);
 
         return await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
     }

@@ -53,6 +53,9 @@ public static class SchemaDefinitions
         CREATE INDEX IF NOT EXISTS idx_queue_jobs_heartbeat 
         ON QueueJobs (State, HeartbeatAt ASC)
         WHERE State = 'Processing';
+
+        CREATE INDEX IF NOT EXISTS idx_queue_jobs_purge 
+        ON QueueJobs (State, LastUpdate ASC);
     ";
 
     public const string CreateScheduledJobsTableSql = @"

@@ -41,17 +41,10 @@ public class HeartbeatMonitor : BackgroundService
                     timeout = TimeSpan.FromMinutes(1);
                 }
 
-                // If the underlying queue implementation supports orphaned job recovery via reflection/dynamic dispatch
-                // (e.g. SqliteJobQueue.RecoverOrphanedJobsAsync)
-                var method = _jobQueue.GetType().GetMethod("RecoverOrphanedJobsAsync", [typeof(TimeSpan), typeof(CancellationToken)]);
-                if (method != null)
+                int recovered = await _jobQueue.RecoverOrphanedJobsAsync(timeout, stoppingToken);
+                if (recovered > 0)
                 {
-                    var task = (Task<int>)method.Invoke(_jobQueue, [timeout, stoppingToken])!;
-                    int recovered = await task;
-                    if (recovered > 0)
-                    {
-                        _logger.LogWarning("HeartbeatMonitor recovered {RecoveredCount} orphaned job(s) whose heartbeats timed out.", recovered);
-                    }
+                    _logger.LogWarning("HeartbeatMonitor recovered {RecoveredCount} orphaned job(s) whose heartbeats timed out.", recovered);
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)

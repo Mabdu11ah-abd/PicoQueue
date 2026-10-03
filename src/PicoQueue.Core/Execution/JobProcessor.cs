@@ -190,7 +190,10 @@ public class JobProcessor : BackgroundService
 
     private async Task RunHeartbeatLoopAsync(Guid jobId, CancellationToken ct)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(15));
+        var heartbeatInterval = _options.HeartBeatMonitorInterval > TimeSpan.FromSeconds(2)
+            ? TimeSpan.FromMilliseconds(_options.HeartBeatMonitorInterval.TotalMilliseconds / 2)
+            : TimeSpan.FromSeconds(1);
+        using var timer = new PeriodicTimer(heartbeatInterval);
         try
         {
             while (!ct.IsCancellationRequested && await timer.WaitForNextTickAsync(ct))

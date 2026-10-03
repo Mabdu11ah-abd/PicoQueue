@@ -52,8 +52,8 @@ public class RecurringJobScheduler : BackgroundService
                             TypeName = job.TypeName,
                             PayloadJson = job.PayloadJson,
                             Queue = job.Queue,
-                            Priority = job.Priority,
-                            MaxAttempts = job.MaxAttempts
+                            Priority = 0,
+                            MaxAttempts = 3
                         }, stoppingToken);
 
                         // 2. Calculate next run time if recurring

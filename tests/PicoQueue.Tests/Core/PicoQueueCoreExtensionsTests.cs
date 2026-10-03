@@ -47,5 +47,6 @@ public class PicoQueueCoreExtensionsTests
         Assert.Contains(hostedServices, s => s is JobProcessor);
         Assert.Contains(hostedServices, s => s is RecurringJobScheduler);
         Assert.Contains(hostedServices, s => s is HeartbeatMonitor);
+        Assert.Contains(hostedServices, s => s is RetentionPurgeService);
     }
 }
