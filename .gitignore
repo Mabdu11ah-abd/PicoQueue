@@ -72,7 +72,6 @@ lerna-debug.log*
 ## Environment & Secrets
 ## ==============================================================================
 
-.env
 .env*.local
 appsettings.*.local.json
 secrets.json
@@ -82,7 +81,6 @@ secrets.json
 ## ==============================================================================
 
 # Visual Studio Code
-.vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
@@ -107,3 +105,7 @@ $RECYCLE.BIN/
 .AppleDouble
 .LSOverride
 ._*
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat
+config.bat

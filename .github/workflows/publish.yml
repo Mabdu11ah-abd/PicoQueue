@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  workflow_dispatch: # Enables the manual "Run workflow" button in GitHub Actions
 
 permissions:
   id-token: write  # Required for OIDC / Trusted Publishing
@@ -22,5 +23,11 @@ jobs:
       - name: Build & Pack
         run: dotnet pack PicoQueue.slnx -c Release -o ./artifacts
 
+      - name: Authenticate with NuGet via OIDC
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: AbdullahAtiqR
+
       - name: Publish to NuGet (Keyless)
-        run: dotnet nuget push ./artifacts/*.nupkg --source https://api.nuget.org/v3/index.json --skip-duplicate
+        run: dotnet nuget push ./artifacts/*.nupkg --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
