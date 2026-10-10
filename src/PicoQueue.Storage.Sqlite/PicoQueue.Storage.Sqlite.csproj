@@ -4,6 +4,9 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <PackageId>PicoQueue.Storage.Sqlite</PackageId>
+    <Description>SQLite storage backend for PicoQueue, built directly on Microsoft.Data.Sqlite (no EF Core).</Description>
+    <PackageTags>background-jobs;queue;sqlite;storage;database;picoqueue</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

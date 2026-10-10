@@ -32,6 +32,9 @@
 *.nuget.targets
 project.lock.json
 project.assets.json
+*.nupkg
+*.snupkg
+artifacts/
 
 # Profiler & coverage
 *.coverage

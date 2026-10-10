@@ -16,6 +16,9 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <PackageId>PicoQueue.Core</PackageId>
+    <Description>Core execution engine for PicoQueue - workers, retry policy, cron scheduler, and dispatcher.</Description>
+    <PackageTags>background-jobs;queue;sqlite;scheduler;cron;worker;picoqueue</PackageTags>
   </PropertyGroup>
 
 </Project>

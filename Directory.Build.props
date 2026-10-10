@@ -1,0 +1,25 @@
+<Project>
+  <PropertyGroup>
+    <!-- Package Version -->
+    <Version>0.1.0-alpha.1</Version>
+    <Authors>PicoQueue Contributors</Authors>
+    <Company>PicoQueue</Company>
+
+    <!-- Licensing & Repository -->
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/Mabdu11ah-abd/PicoQueue</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Mabdu11ah-abd/PicoQueue</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>Readme.md</PackageReadmeFile>
+
+    <!-- Source Link & Debugging Symbols -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' != 'false'">
+    <None Include="$(MSBuildThisFileDirectory)Readme.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>
